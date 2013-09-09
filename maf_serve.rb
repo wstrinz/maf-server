@@ -3,14 +3,16 @@ require 'sinatra/streaming'
 require 'open-uri'
 require 'bio-publisci'
 require 'cgi'
+require_relative 'query.rb'
 
 helpers do
   def clear_store
-    `sudo killall 4s-backend`
-    `sudo killall 4s-httpd`
-    `sudo 4s-backend setup test`
-    `sudo 4s-backend test`
-    `sudo 4s-httpd -U test`
+    pass = IO.read('passfile').chomp
+    puts `echo #{pass} | sudo -S killall 4s-backend`
+    puts `echo #{pass} | sudo -S killall 4s-httpd`
+    puts `echo #{pass} | sudo -S 4s-backend-setup test`
+    puts `echo #{pass} | sudo -S 4s-backend test`
+    puts `echo #{pass} | sudo -S 4s-httpd -U test`
   end
 end
 
@@ -19,7 +21,7 @@ configure do
 end
 
 get '/' do
-  "Some sort of homepage"
+  redirect 'input'
 end
 
 get '/input' do
@@ -28,28 +30,31 @@ get '/input' do
 end
 
 post '/input' do
+  raise "Can only handle one job at a time, try again later" unless settings.processing_status == :idle || settings.processing_status["Error"] || settings.processing_status == ["Done!"]
   stream do |out|
     @remote_maf = params[:remote_maf]
-    out.puts "downloading #{@remote_maf}<br>"
-    open(@remote_maf){|f|
-      File.open('downloaded_temp.maf','w'){|fi| fi.write f.read}
-    }
-
-    out.puts "removing quotes<br>"
-    # Remove quotes...
-    file = open('downloaded.maf','w')
-    open('downloaded_temp.maf','r'){|f|
-      f.each_line do |line|
-        file.write line.gsub('"','')
-      end
-    }
-
-    file.close
-
-    out.puts "File downloaded! check the <a href='wait_for_it'>Status</a> page for progress<br>"
+    out.puts "downloading #{@remote_maf}<br><br>"
+    out.puts "Check the <a href='wait_for_it'>Status</a> page for progress<br>"
     Thread.new do
-      raise "Can only handle one job at a time, try again later" unless settings.processing_status == :idle || settings.processing_status["Error"] || settings.processing_status == ["Done!"]
       begin
+        settings.processing_status = "Downloading remote file"
+        
+        open(@remote_maf){|f|
+          File.open('downloaded_temp.maf','w'){|fi| fi.write f.read}
+        }
+
+        settings.processing_status = "Removing quotes"
+        # out.puts "removing quotes<br>"
+        # Remove quotes...
+        file = open('downloaded.maf','w')
+        open('downloaded_temp.maf','r'){|f|
+          f.each_line do |line|
+            file.write line.gsub('"','')
+          end
+        }
+
+        file.close
+
         settings.processing_status = "Triplifying input"
         parser = PubliSci::Readers::MAF.new
         parser.generate_n3('downloaded.maf',{dataset_name: "maf_data"})
@@ -57,7 +62,7 @@ post '/input' do
         clear_store
         settings.processing_status = "Loading the data into 4store"
         repo = RDF::FourStore::Repository.new('http://localhost:8080')
-        repo.load('downloaded.maf', :format => :ttl)
+        repo.load('downloaded.ttl', :format => :ttl)
         settings.processing_status = "Done!"
       rescue => description
         settings.processing_status = "Error: #{description.inspect}, #{CGI.escapeHTML(description.backtrace.join("\n"))}"
@@ -68,7 +73,10 @@ post '/input' do
 end
 
 get '/interact' do
-
+  queryer = MafQuery.new
+  result = queryer.select_patient_count(RDF::FourStore::Repository.new('http://localhost:8080'),"BH-A0HP")
+  # "res: " + .to_s + " end"
+  CGI.escapeHTML(result.to_s)
 end
 
 post '/interact' do
@@ -105,4 +113,13 @@ get '/wait_for_it' do
     
     out.puts "All Done!<br>"
   end
+end
+
+get '/patient/:id' do
+  # generate patient report
+  @patient = params[:id]
+
+  queryer = MafQuery.new
+  result = queryer.patient_info(@patient,RDF::FourStore::Repository.new('http://localhost:8080'))
+  CGI.escapeHTML(result.to_s)
 end
