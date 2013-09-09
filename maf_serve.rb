@@ -30,7 +30,7 @@ get '/input' do
 end
 
 post '/input' do
-  raise "Can only handle one job at a time, try again later" unless settings.processing_status == :idle || settings.processing_status["Error"] || settings.processing_status == ["Done!"]
+  raise "Can only handle one job at a time, try again later" unless settings.processing_status == :idle || settings.processing_status["Error"] || settings.processing_status["Done!"]
   stream do |out|
     @remote_maf = params[:remote_maf]
     out.puts "downloading #{@remote_maf}<br><br>"
@@ -80,11 +80,13 @@ end
 
 get '/patient/:id' do
   # generate patient report
-  @patient = params[:id]
+  stream do |out|
+    patient = params[:id]
 
-  queryer = MafQuery.new
-  result = queryer.patient_info(@patient,RDF::FourStore::Repository.new('http://localhost:8080'))
-  CGI.escapeHTML(result.to_s)
+    queryer = MafQuery.new
+    result = queryer.patient_info(patient,RDF::FourStore::Repository.new('http://localhost:8080'))
+    out.puts CGI.escapeHTML(result.to_s)
+  end
 end
 
 get '/genes' do

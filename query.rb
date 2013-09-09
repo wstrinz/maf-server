@@ -36,7 +36,30 @@ class MafQuery
     end
 
     def select_property(repo,property="hgnc.symbol",patient_id="A8-A08G")
-      qry = IO.read(QUERIES_DIR + '/maf_column.rq').gsub('%{patient}',patient_id).gsub('%{column}',property)
+
+      qry = <<-EOF
+      PREFIX qb:   <http://purl.org/linked-data/cube#>
+      PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+      PREFIX sio: <http://semanticscience.org/resource/>
+
+      SELECT DISTINCT ?column WHERE {
+        [] a qb:ComponentSpecification;
+          rdfs:label "%{column}";
+          qb:measure ?column_measure.
+
+        [] a qb:ComponentSpecification;
+          rdfs:label "patient_id";
+          qb:measure ?patient_id.
+
+        ?obs a qb:Observation;
+          ?patient_id "%{patient}" .
+          
+        ?obs ?column_measure [ sio:SIO_000300 ?column ]
+      }
+      EOF
+
+      # IO.read(QUERIES_DIR + '/maf_column.rq').gsub('%{patient}',patient_id)
+      qry = qry.gsub('%{column}',property).gsub('%{patient}',patient_id)
       results = SPARQL::Client.new("#{repo.uri}/sparql/").query(qry).map(&:column).map{|val| 
         if val.is_a?(RDF::URI) and val.to_s["node"]
           node_value(repo,val)
@@ -106,7 +129,9 @@ class MafQuery
     end
 
     def patient_info(id,repo)
-      symbols = select_property(repo,"Hugo_Symbol",id).map(&:to_s).map{|sym|
+      symbols = select_property(repo,"Hugo_Symbol",id)
+
+      symbols = symbols.map(&:to_s).map{|sym|
         official = official_symbol(sym.split('/').last)
         if official.size > 0
           sym.split('/')[0..-2].join('/') + '/' + official
@@ -114,8 +139,10 @@ class MafQuery
           sym
         end
       }
-      patient_id = select_property(repo,"patient_id",id).first.to_s
-      patient = {patient_id: patient_id, mutation_count: symbols.size, mutations:[]}
+
+      puts symbols
+      # patient_id = select_property(repo,"patient_id",id).first.to_s
+      patient = {patient_id: id, mutation_count: symbols.size, mutations:[]}
 
       symbols.each{|sym| patient[:mutations] << {symbol: sym, length: gene_length(sym)}}
       patient
