@@ -130,6 +130,8 @@ get '/wait_for_it' do
     end
 
     
-    out.puts "All Done!<br>"
+    out.puts "All Done!<br><br>"
+    out.puts "<a href='patients'>View Patients</a><br>"
+    out.puts "<a href='genes'>View Genes</a><br>"
   end
 end

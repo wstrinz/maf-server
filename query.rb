@@ -107,7 +107,12 @@ class MafQuery
 
     def patient_info(id,repo)
       symbols = select_property(repo,"Hugo_Symbol",id).map(&:to_s).map{|sym|
-        sym.split('/')[0..-2].join('/') + '/' + official_symbol(sym.split('/').last)      
+        official = official_symbol(sym.split('/').last)
+        if official.size > 0
+          sym.split('/')[0..-2].join('/') + '/' + official
+        else
+          sym
+        end
       }
       patient_id = select_property(repo,"patient_id",id).first.to_s
       patient = {patient_id: patient_id, mutation_count: symbols.size, mutations:[]}
