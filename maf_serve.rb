@@ -84,8 +84,10 @@ get '/patient/:id' do
     patient = params[:id]
 
     queryer = MafQuery.new
-    result = queryer.patient_info(patient,RDF::FourStore::Repository.new('http://localhost:8080'))
-    out.puts CGI.escapeHTML(result.to_s)
+    queryer.patient_info(patient,RDF::FourStore::Repository.new('http://localhost:8080')){|ret|
+      out.puts CGI.escapeHTML ret.to_s
+    }
+    # out.puts CGI.escapeHTML(result.to_s)
   end
 end
 
@@ -96,10 +98,6 @@ end
 get '/gene/:id' do
 
 end
-
-# post '/interact' do
-
-# end
 
 get '/query' do
   queryer = MafQuery.new

@@ -104,15 +104,19 @@ class MafQuery
 
     def gene_length(hugo_symbol)
       hugo_symbol = hugo_symbol.split('/').last
-      qry = IO.read(QUERIES_DIR + '/hugo_to_ensembl.rq').gsub('%{hugo_symbol}',hugo_symbol)
-      sparql = SPARQL::Client.new("http://cu.hgnc.bio2rdf.org/sparql")
-      sol = sparql.query(qry)
-
-      if sol.size == 0
-        puts "No Ensembl entry found for #{hugo_symbol}"
-        return -1
+      if hugo_symbol[/ENSG\d.+/]
+        ensemble_id = hugo_symbol
       else
-        ensemble_id = sol.map(&:ensembl).first.to_s.split(':').last
+        qry = IO.read(QUERIES_DIR + '/hugo_to_ensembl.rq').gsub('%{hugo_symbol}',hugo_symbol)
+        sparql = SPARQL::Client.new("http://cu.hgnc.bio2rdf.org/sparql")
+        sol = sparql.query(qry)
+
+        if sol.size == 0
+          puts "No Ensembl entry found for #{hugo_symbol}"
+          return -1
+        else
+          ensemble_id = sol.map(&:ensembl).first.to_s.split(':').last
+        end
       end
 
       url = URI.parse('http://beta.rest.ensembl.org/')
@@ -121,14 +125,15 @@ class MafQuery
       response = http.request(request)
 
       if response.code != "200"
-        raise "Invalid response: #{response.code}"
+        puts "Invalid response: #{response.code}"
+        return -1
       else
         js = JSON.parse(response.body)
         js['end'] - js['start']
       end
     end
 
-    def patient_info(id,repo)
+    def patient_info(id,repo,&block)
       symbols = select_property(repo,"Hugo_Symbol",id)
 
       symbols = symbols.map(&:to_s).map{|sym|
@@ -140,11 +145,15 @@ class MafQuery
         end
       }
 
-      puts symbols
       # patient_id = select_property(repo,"patient_id",id).first.to_s
       patient = {patient_id: id, mutation_count: symbols.size, mutations:[]}
+      if block_given?
+        yield patient
+        symbols.each{|sym| yield Hash(symbol: sym, length: gene_length(sym)) }
+      else
+        symbols.each{|sym| patient[:mutations] << {symbol: sym, length: gene_length(sym)}}
+      end
 
-      symbols.each{|sym| patient[:mutations] << {symbol: sym, length: gene_length(sym)}}
       patient
     end
 end
