@@ -53,8 +53,15 @@ class MafQuery
 
         ?obs a qb:Observation;
           ?patient_id "%{patient}" .
-          
-        ?obs ?column_measure [ sio:SIO_000300 ?column ]
+        
+        {
+          ?obs ?column_measure ?column.
+          FILTER isLiteral(?column)
+        }
+        UNION
+        {?obs ?column_measure [ sio:SIO_000300 ?column ]}
+        UNION
+        {?obs ?column_measure [ sio:SIO_000008 [sio:SIO_000300 ?column] ]}
       }
       EOF
 
@@ -155,5 +162,18 @@ class MafQuery
       end
 
       patient
+    end
+
+    def gene_info(hugo_symbol,repo)
+      qry = IO.read(QUERIES_DIR + '/patients_with_mutation.rq').gsub('%{hugo_symbol}',hugo_symbol)
+      sols = SPARQL::Client.new("#{repo.uri}/sparql/").query(qry)
+      patient_count = sols.size
+      {mutations: patient_count, gene_length: gene_length(hugo_symbol), patients: sols.map(&:patient_id).map(&:to_s)}
+      # symbols = select_property(repo,"Hugo_Symbol",id).map(&:to_s)
+      # patient_id = select_property(repo,"patient_id",id).first.to_s
+      # patient = {patient_id: patient_id, mutation_count: symbols.size, mutations:[]}
+
+      # symbols.each{|sym| patient[:mutations] << {symbol: sym, length: gene_length(sym)}}
+      # patient
     end
 end

@@ -81,33 +81,80 @@ end
 get '/patient/:id' do
   # generate patient report
   stream do |out|
+    content_type :json
+    
     patient = params[:id]
-
     queryer = MafQuery.new
     queryer.patient_info(patient,RDF::FourStore::Repository.new('http://localhost:8080')){|ret|
-      out.puts CGI.escapeHTML ret.to_s
+      out.puts ret.to_json
     }
-    # out.puts CGI.escapeHTML(result.to_s)
   end
 end
 
 get '/genes' do
-  
+  queryer = MafQuery.new
+  result = queryer.select_property(RDF::FourStore::Repository.new('http://localhost:8080'),'Hugo_Symbol')
+  result.map{|res| "<a href='gene/#{res.to_s.split('/').last}'>#{res.to_s.split('/').last}</a>"}.join('<br>')
 end
 
 get '/gene/:id' do
+  stream do |out|
+    content_type :json
 
+    gene = params[:id]
+
+    queryer = MafQuery.new
+    result = queryer.gene_info(gene,RDF::FourStore::Repository.new('http://localhost:8080'))
+    out.puts result.to_json
+  end
 end
 
 get '/query' do
-  queryer = MafQuery.new
-  result = queryer.select_patient_count(RDF::FourStore::Repository.new('http://localhost:8080'),"BH-A0HP")
-  # "res: " + .to_s + " end"
-  result.map{|res| CGI.escapeHTML(res.to_s)}.join("<br>")
+  @query = params[:query] || <<-EOF
+
+# Select patients with a mutation in SHANK1
+
+PREFIX qb:   <http://purl.org/linked-data/cube#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sio: <http://semanticscience.org/resource/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT DISTINCT ?patient_id WHERE {
+  [] a qb:ComponentSpecification;
+    rdfs:label "Hugo_Symbol";
+    qb:measure ?hugo_symbol.
+
+  [] a qb:ComponentSpecification;
+    rdfs:label "patient_id";
+    qb:measure ?patient_id_property.
+
+  ?obs a qb:Observation;
+    ?hugo_symbol [ sio:SIO_000300 <http://identifiers.org/hgnc.symbol/SHANK1> ];
+    ?patient_id_property ?patient_id .
+}
+
+  EOF
+  @repo = RDF::FourStore::Repository.new('http://localhost:8080')
+
+  haml :query
 end
 
 post '/query' do
+  @query = params[:query]
+  @repo = RDF::FourStore::Repository.new('http://localhost:8080')
+  @result = SPARQL::Client.new("#{@repo.uri}/sparql/").query(@query)
+  str = '<table border="1">'
+  @result.map{|solution|
+    str << "<tr>"
+    solution.bindings.map{|bind,result|
+      str << "<td>" + CGI.escapeHTML("#{bind}:  #{result.to_s}") + "</td>"
+    }
+    str << "</tr>"
+  }
+  str << "</table>"
+  @result = str
 
+  haml :query
 end
 
 get '/status' do
