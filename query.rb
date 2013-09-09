@@ -2,7 +2,7 @@ require 'bio-publisci'
 require 'json'
 
 class MafQuery
-    QUERIES_DIR = Gem::Specification.find_by_name("bio-publisci").gem_dir + "/resources/queries/"
+    QUERIES_DIR = Gem::Specification.find_by_name("bio-publisci").gem_dir + "/resources/queries"
 
 
     # def generate_data
@@ -22,6 +22,11 @@ class MafQuery
       qry = qry.gsub('%{patient}',patient_id)
 
       SPARQL::Client.new("#{repo.uri}/sparql/").query(qry).first[:barcodes].to_i
+    end
+
+    def patients(repo)
+      qry = IO.read(QUERIES_DIR + '/patient_list.rq')
+      SPARQL::Client.new("#{repo.uri}/sparql/").query(qry).map(&:id).map(&:to_s)
     end
 
     def select_patient_genes(repo,patient_id="A8-A08G")
@@ -101,7 +106,9 @@ class MafQuery
     end
 
     def patient_info(id,repo)
-      symbols = select_property(repo,"Hugo_Symbol",id).map(&:to_s)
+      symbols = select_property(repo,"Hugo_Symbol",id).map(&:to_s).map{|sym|
+        sym.split('/')[0..-2].join('/') + '/' + official_symbol(sym.split('/').last)      
+      }
       patient_id = select_property(repo,"patient_id",id).first.to_s
       patient = {patient_id: patient_id, mutation_count: symbols.size, mutations:[]}
 

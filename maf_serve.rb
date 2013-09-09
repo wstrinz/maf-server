@@ -72,19 +72,38 @@ post '/input' do
   # haml :input
 end
 
-get '/interact' do
+get '/patients' do
   queryer = MafQuery.new
-  result = queryer.select_patient_count(RDF::FourStore::Repository.new('http://localhost:8080'),"BH-A0HP")
-  # "res: " + .to_s + " end"
+  result = queryer.patients(RDF::FourStore::Repository.new('http://localhost:8080'))
+  result.map{|res| "<a href='patient/#{res.to_s}'>#{res.to_s}</a>"}.join('<br>')
+end
+
+get '/patient/:id' do
+  # generate patient report
+  @patient = params[:id]
+
+  queryer = MafQuery.new
+  result = queryer.patient_info(@patient,RDF::FourStore::Repository.new('http://localhost:8080'))
   CGI.escapeHTML(result.to_s)
 end
 
-post '/interact' do
+get '/genes' do
+  
+end
+
+get '/gene/:id' do
 
 end
 
-get '/query' do
+# post '/interact' do
 
+# end
+
+get '/query' do
+  queryer = MafQuery.new
+  result = queryer.select_patient_count(RDF::FourStore::Repository.new('http://localhost:8080'),"BH-A0HP")
+  # "res: " + .to_s + " end"
+  result.map{|res| CGI.escapeHTML(res.to_s)}.join("<br>")
 end
 
 post '/query' do
@@ -113,13 +132,4 @@ get '/wait_for_it' do
     
     out.puts "All Done!<br>"
   end
-end
-
-get '/patient/:id' do
-  # generate patient report
-  @patient = params[:id]
-
-  queryer = MafQuery.new
-  result = queryer.patient_info(@patient,RDF::FourStore::Repository.new('http://localhost:8080'))
-  CGI.escapeHTML(result.to_s)
 end
