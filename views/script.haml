@@ -1,0 +1,22 @@
+%table{border: "1"}
+  %tbody
+    %tr
+      %td
+        %a{:href => "input"} Input
+
+%div
+  %p Run Query Script
+%table{border: "1"}
+  %tbody
+    %tr
+      %td
+        %strong Script
+      %td
+        %form{ action: "", method: "post"}
+          %textarea{name: "script", :class => "text", cols: "80", rows: "20"}=@script
+          %input{:type => "submit", :value => "Send", :class => "button"}
+    %tr
+      %td
+        %strong Results
+      %td
+        =h(@result)

@@ -5,23 +5,61 @@ class MafQuery
     QUERIES_DIR = Gem::Specification.find_by_name("bio-publisci").gem_dir + "/resources/queries"
 
 
-    # def generate_data
-    #   generator = PubliSci::Readers::MAF.new
-    #   in_file = 'resources/maf_example.maf'
-    #   f = Tempfile.new('graph')
-    #   f.close
-    #   generator.generate_n3(in_file, {output: :file, output_base: f.path})
-    #   repo = RDF::Repository.load(f.path+'.ttl')
-    #   File.delete(f.path+'.ttl')
-    #   f.unlink
-    #   repo
-    # end
+    def generate_data
+      generator = PubliSci::Readers::MAF.new
+      in_file = Gem::Specification.find_by_name("bio-publisci").gem_dir + '/resources/maf_example.maf'
+      f = Tempfile.new('graph')
+      f.close
+      generator.generate_n3(in_file, {output: :file, output_base: f.path})
+      repo = RDF::Repository.load(f.path+'.ttl')
+      File.delete(f.path+'.ttl')
+      f.unlink
+      repo
+    end
+
+    def to_por(solution)
+      if solution.is_a?(Fixnum) or solution.is_a?(String) or solution.is_a?(Hash)
+        solution
+      elsif solution.is_a? RDF::Query::Solutions
+        to_por solution.map{|sol|
+          if sol.bindings.size == 1
+            to_por(sol.bindings.first.last)
+          else
+            solution.each_solution.to_a.map{|sol|
+             to_por(sol)
+            }
+            arr.first
+          end
+        }
+      elsif solution.is_a? RDF::Query::Solution
+        if solution.bindings.size == 1
+          to_por(solution.bindings.first.last)
+        else
+          Hash[solution.bindings.map{|bind,result| [bind,to_por(result)] }]
+        end
+      elsif solution.is_a? Array
+        if solution.size == 1
+          to_por(solution.first)
+        else
+          solution.map{|sol| to_por(sol)}
+        end
+      else
+        if solution.is_a? RDF::Literal
+          solution.object
+        elsif solution.is_a? RDF::URI
+          solution.to_s
+        else
+          puts "don't recognzize #{solution.class}"
+          solution.to_s
+        end
+      end
+    end
 
     def select_patient_count(repo,patient_id="A8-A08G")
       qry = IO.read(QUERIES_DIR + '/patient.rq')
       qry = qry.gsub('%{patient}',patient_id)
 
-      SPARQL::Client.new("#{repo.uri}/sparql/").query(qry).first[:barcodes].to_i
+      SPARQL::Client.new("#{repo.uri}/sparql/").query(qry)
     end
 
     def patients(repo)
@@ -143,7 +181,7 @@ class MafQuery
     def patient_info(id,repo,&block)
       symbols = select_property(repo,"Hugo_Symbol",id)
 
-      symbols = symbols.map(&:to_s).map{|sym|
+      symbols = Array(symbols).map(&:to_s).map{|sym|
         official = official_symbol(sym.split('/').last)
         if official.size > 0
           sym.split('/')[0..-2].join('/') + '/' + official
@@ -177,3 +215,100 @@ class MafQuery
       # patient
     end
 end
+
+class QueryScript
+  class Query
+    def initialize(string,repo,template={})
+      @query = string
+      @repo = repo
+      @template = template
+    end
+
+    def template
+      @template
+    end
+
+    def substitute!
+      @template.each{|k,v|
+        @query.gsub!("{{#{k}}}",v)
+      }
+    end
+
+    def substitute
+      str = @query.dup
+      @template.each{|k,v|
+        str.gsub!("{{#{k}}}",v)
+      }
+      str
+    end
+
+    def run(template={})
+      @template = @template.merge(template)
+      substitute!
+      puts @query
+      SPARQL::Client.new("#{@repo.uri}/sparql/").query(@query)
+    end
+  end
+
+  def initialize(script=nil,repo=nil)
+    @__script = script
+    @__maf = MafQuery.new
+    unless repo
+      @__repo = RDF::FourStore::Repository.new('http://localhost:8080')
+    else
+      @__repo = repo
+    end
+  end
+
+  def maf_eval(script=@__script)
+    @__maf.instance_eval(script)
+  end
+
+  def run_script
+    instance_eval(@__script)
+  end
+
+  def query(string,template={})
+    Query.new(string,@__repo,template)
+  end
+
+  def select(operation,*args)
+    @__maf.to_por(select_raw(operation,*args))
+  end
+
+  def select_raw(operation, *args)
+    if operation.is_a? Query
+      operation.run
+    elsif @__maf.methods.include?(:"select_#{operation}")
+      @__maf.send(:"select_#{operation}",@__repo,*args)
+    else
+      @__maf.select_property(@__repo,operation,*args)
+    end
+  end
+
+  def gene_length(gene)
+    @__maf.to_por(@__maf.gene_length(gene))
+  end
+
+  def report_for(type, id)
+    @__maf.send(:"#{type}_info",id, @__repo)
+  end
+end
+
+# describe QueryScript do
+#   describe ".select" do
+#     before(:all){
+#       @ev = QueryScript.new
+#     }
+    
+#     it { @ev.select('patient_count', "BH-A0HP").should > 0 }
+#     it { @ev.select('Chromosome', 'BH-A0HP').first.class.should be Fixnum}
+  
+#     context "with instance_eval" do
+#       it { @ev.instance_eval("select 'patient_count', 'BH-A0HP'").should > 0 }
+#       it { @ev.instance_eval("select 'Hugo_Symbol', 'BH-A0HP'").first.should == "http://identifiers.org/hgnc.symbol/ARHGAP30" }
+#       it { @ev.instance_eval("select 'Chromosome', 'BH-A0HP'").first.class.should be Fixnum}
+#       # it { @ev.instance_eval("report_for 'patient', 'BH-A0HP'").is_a?(Hash).should be true }
+#     end
+#   end
+# end

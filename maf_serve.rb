@@ -14,6 +14,14 @@ helpers do
     puts `echo #{pass} | sudo -S 4s-backend test`
     puts `echo #{pass} | sudo -S 4s-httpd -U test`
   end
+
+  def run_script(script)
+    QueryScript.new(script).run_script
+  end
+
+  def h(html)
+    CGI::escapeHTML(html.to_s)
+  end
 end
 
 configure do
@@ -44,8 +52,6 @@ post '/input' do
         }
 
         settings.processing_status = "Removing quotes"
-        # out.puts "removing quotes<br>"
-        # Remove quotes...
         file = open('downloaded.maf','w')
         open('downloaded_temp.maf','r'){|f|
           f.each_line do |line|
@@ -155,6 +161,19 @@ post '/query' do
   @result = str
 
   haml :query
+end
+
+get '/script' do
+  @script = params[:script] || "select 'Hugo_Symbol', 'BH-A0HP'"
+
+  haml :script
+end
+
+post '/script' do
+  @script = params[:script]
+  @result = run_script(params[:script])
+
+  haml :script
 end
 
 get '/status' do
