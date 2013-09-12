@@ -16,7 +16,9 @@ helpers do
   end
 
   def run_script(script)
-    QueryScript.new(script).run_script
+    id = session[:id]
+    runner = settings.script_instances[:id] ||= QueryScript.new
+    runner.run_script(script)
   end
 
   def h(html)
@@ -26,6 +28,7 @@ end
 
 configure do
   set :processing_status, :idle
+  set :script_instances, {}
 end
 
 get '/' do
@@ -170,6 +173,8 @@ get '/script' do
 end
 
 post '/script' do
+  session[:id] ||= Time.now.nsec.to_s(32) + "_#{rand(1000).to_s(32)}"
+
   @script = params[:script]
   @result = run_script(params[:script])
 

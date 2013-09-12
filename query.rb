@@ -245,7 +245,6 @@ class QueryScript
     def run(template={})
       @template = @template.merge(template)
       substitute!
-      puts @query
       SPARQL::Client.new("#{@repo.uri}/sparql/").query(@query)
     end
   end
@@ -264,8 +263,8 @@ class QueryScript
     @__maf.instance_eval(script)
   end
 
-  def run_script
-    instance_eval(@__script)
+  def run_script(script=@__script)
+    instance_eval(script)
   end
 
   def query(string,template={})
