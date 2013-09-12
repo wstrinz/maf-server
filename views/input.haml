@@ -1,11 +1,23 @@
 %div
   %p MAF Input
+  
+%table{border: "1"}
+  %tbody
+    %tr
+      %td
+        %a{:href => "patients"} Patients
+      %td
+        %a{:href => "genes"} Genes
+      %td
+        %a{:href => "script"} Script
+      %td
+        %a{:href => "query"} SPARQL
 
 %p
 
 %form{ action: "", method: "post"}
   %textarea{name: "remote_maf", :class => "text", cols: "100", rows: "4"}=@remote_maf
-  %input{:type => "submit", :value => "Get", :class => "button"}
+  %input{:type => "submit", :value => "Load Dataset", :class => "button"}
 
 %pre
   =html_escape(@output)
