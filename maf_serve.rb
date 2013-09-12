@@ -173,10 +173,16 @@ get '/script' do
 end
 
 post '/script' do
-  session[:id] ||= Time.now.nsec.to_s(32) + "_#{rand(1000).to_s(32)}"
 
   @script = params[:script]
-  @result = run_script(params[:script])
+  @password = params[:password].to_s
+
+  if params[:password].to_s == IO.read('scriptpass').chomp
+    session[:id] ||= Time.now.nsec.to_s(32) + "_#{rand(1000).to_s(32)}"
+    @result = run_script(params[:script])
+  else
+    @result = "Hey youze, get outta here!"
+  end
 
   haml :script
 end

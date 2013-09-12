@@ -15,6 +15,7 @@
         %form{ action: "", method: "post"}
           %textarea{name: "script", :class => "text", cols: "80", rows: "20"}=@script
           %input{:type => "submit", :value => "Send", :class => "button"}
+          %input{name: "password", type: 'text', value: @password}
     %tr
       %td
         %strong Results
