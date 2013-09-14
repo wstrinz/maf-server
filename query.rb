@@ -3,7 +3,11 @@ require 'json'
 
 class MafQuery
     QUERIES_DIR = Gem::Specification.find_by_name("bio-publisci").gem_dir + "/resources/queries"
-
+    RESTRICTIONS = {
+      patient: '<http://onto.strinz.me/properties/patient_id>',
+      sample: '<http://onto.strinz.me/properties/sample_id>',
+      gene: '<http://onto.strinz.me/properties/Hugo_Symbol>',
+    }
 
     def generate_data
       generator = PubliSci::Readers::MAF.new
@@ -73,38 +77,29 @@ class MafQuery
       SPARQL::Client.new("#{repo.uri}/sparql/").query(qry)
     end
 
-    def select_property(repo,property="hgnc.symbol",patient_id="A8-A08G")
-
+    def select_property(repo,property="Hugo_Symbol",restrictions={})
+      target_property = RESTRICTIONS[property.to_sym] || "<http://onto.strinz.me/properties/#{property}>"
+      str = ""
+      restrictions.each{|restrict,value|
+        prop = RESTRICTIONS[restrict.to_sym] || "<http://onto.strinz.me/properties/#{restrict}>"
+        if value.is_a? String
+          value = '"' + value + '"'
+        end
+        str << "\n  #{prop} #{value} ;"
+      }
       qry = <<-EOF
       PREFIX qb:   <http://purl.org/linked-data/cube#>
       PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
       PREFIX sio: <http://semanticscience.org/resource/>
 
       SELECT DISTINCT ?column WHERE {
-        [] a qb:ComponentSpecification;
-          rdfs:label "%{column}";
-          qb:measure ?column_measure.
-
-        [] a qb:ComponentSpecification;
-          rdfs:label "patient_id";
-          qb:measure ?patient_id.
-
         ?obs a qb:Observation;
-          ?patient_id "%{patient}" .
-        
-        {
-          ?obs ?column_measure ?column.
-          FILTER isLiteral(?column)
-        }
-        UNION
-        {?obs ?column_measure [ sio:SIO_000300 ?column ]}
-        UNION
-        {?obs ?column_measure [ sio:SIO_000008 [sio:SIO_000300 ?column] ]}
+        #{str}
+        #{target_property} ?column .
       }
       EOF
 
       # IO.read(QUERIES_DIR + '/maf_column.rq').gsub('%{patient}',patient_id)
-      qry = qry.gsub('%{column}',property).gsub('%{patient}',patient_id)
       results = SPARQL::Client.new("#{repo.uri}/sparql/").query(qry).map(&:column).map{|val| 
         if val.is_a?(RDF::URI) and val.to_s["node"]
           node_value(repo,val)
@@ -179,7 +174,7 @@ class MafQuery
     end
 
     def patient_info(id,repo,&block)
-      symbols = select_property(repo,"Hugo_Symbol",id)
+      symbols = select_property(repo,"Hugo_Symbol", patient: id)
 
       symbols = Array(symbols).map(&:to_s).map{|sym|
         official = official_symbol(sym.split('/').last)
@@ -271,17 +266,17 @@ class QueryScript
     Query.new(string,@__repo,template)
   end
 
-  def select(operation,*args)
-    @__maf.to_por(select_raw(operation,*args))
+  def select(operation,args={})
+    @__maf.to_por(select_raw(operation,args))
   end
 
-  def select_raw(operation, *args)
+  def select_raw(operation, args={})
     if operation.is_a? Query
       operation.run
     elsif @__maf.methods.include?(:"select_#{operation}")
-      @__maf.send(:"select_#{operation}",@__repo,*args)
+      @__maf.send(:"select_#{operation}",@__repo,args)
     else
-      @__maf.select_property(@__repo,operation,*args)
+      @__maf.select_property(@__repo,operation,args)
     end
   end
 
