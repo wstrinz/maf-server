@@ -29,9 +29,7 @@ class MafQuery
           if sol.bindings.size == 1
             to_por(sol.bindings.first.last)
           else
-            solution.each_solution.to_a.map{|sol|
-             to_por(sol)
-            }.first
+            to_por(sol)
           end
         }
       elsif solution.is_a? RDF::Query::Solution
