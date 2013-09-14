@@ -31,7 +31,7 @@ class MafQuery
           else
             solution.each_solution.to_a.map{|sol|
              to_por(sol)
-            }
+            }.first
           end
         }
       elsif solution.is_a? RDF::Query::Solution
