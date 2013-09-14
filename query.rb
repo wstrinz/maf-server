@@ -32,7 +32,6 @@ class MafQuery
             solution.each_solution.to_a.map{|sol|
              to_por(sol)
             }
-            arr.first
           end
         }
       elsif solution.is_a? RDF::Query::Solution
@@ -78,37 +77,57 @@ class MafQuery
     end
 
     def select_property(repo,property="Hugo_Symbol",restrictions={})
-      target_property = RESTRICTIONS[property.to_sym] || "<http://onto.strinz.me/properties/#{property}>"
+      property = Array(property)
+      selects = property
+      property = property.map{|prop|
+        RESTRICTIONS[prop.to_sym] || "<http://onto.strinz.me/properties/#{prop}>"
+      }
+      
+      targets = ""
+      property.each_with_index{|p,i|
+        targets << "\n  #{p} ?#{selects[i]} ;"
+      }
+
       str = ""
       restrictions.each{|restrict,value|
         prop = RESTRICTIONS[restrict.to_sym] || "<http://onto.strinz.me/properties/#{restrict}>"
         if value.is_a? String
-          value = '"' + value + '"'
+          if RDF::Resource(value).valid?
+            if(value[/http:\/\//])
+              value = RDF::Resource(value).to_base
+            end
+          else
+            value = '"' + value + '"'
+          end
         end
         str << "\n  #{prop} #{value} ;"
       }
+
+
       qry = <<-EOF
       PREFIX qb:   <http://purl.org/linked-data/cube#>
       PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
       PREFIX sio: <http://semanticscience.org/resource/>
 
-      SELECT DISTINCT ?column WHERE {
+      SELECT DISTINCT ?#{selects.join(" ?")} WHERE {
         ?obs a qb:Observation;
         #{str}
-        #{target_property} ?column .
+        #{targets} 
+        .
       }
       EOF
 
+
       # IO.read(QUERIES_DIR + '/maf_column.rq').gsub('%{patient}',patient_id)
-      results = SPARQL::Client.new("#{repo.uri}/sparql/").query(qry).map(&:column).map{|val| 
-        if val.is_a?(RDF::URI) and val.to_s["node"]
-          node_value(repo,val)
-        else
-          val
-        end
+      results = SPARQL::Client.new("#{repo.uri}/sparql/").query(qry) #.map(&:column).map{|val| 
+        # if val.is_a?(RDF::URI) and val.to_s["node"]
+        #   node_value(repo,val)
+        # else
+        #   val
+        # end
 
-      }.flatten
-
+#      }.flatten
+      
     end
 
     def node_value(repo,uri)
@@ -174,9 +193,9 @@ class MafQuery
     end
 
     def patient_info(id,repo,&block)
-      symbols = select_property(repo,"Hugo_Symbol", patient: id)
+      symbols = Array(to_por(select_property(repo,"Hugo_Symbol",patient: id)))
 
-      symbols = Array(symbols).map(&:to_s).map{|sym|
+      symbols = symbols.map(&:to_s).map{|sym|
         official = official_symbol(sym.split('/').last)
         if official.size > 0
           sym.split('/')[0..-2].join('/') + '/' + official
