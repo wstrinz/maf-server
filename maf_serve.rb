@@ -102,7 +102,7 @@ end
 
 get '/genes' do
   queryer = MafQuery.new
-  result = queryer.select_property(RDF::FourStore::Repository.new('http://localhost:8080'),'Hugo_Symbol')
+  result = queryer.to_por queryer.select_property(RDF::FourStore::Repository.new('http://localhost:8080'),'Hugo_Symbol')
   result.map{|res| "<a href='gene/#{res.to_s.split('/').last}'>#{res.to_s.split('/').last}</a>"}.join('<br>')
 end
 
