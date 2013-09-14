@@ -167,7 +167,7 @@ post '/query' do
 end
 
 get '/script' do
-  @script = params[:script] || "select 'Hugo_Symbol', 'BH-A0HP'"
+  @script = params[:script] || "select 'Hugo_Symbol', patient: 'BH-A0HP'"
 
   haml :script
 end
