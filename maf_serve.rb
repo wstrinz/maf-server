@@ -49,7 +49,7 @@ post '/input' do
     Thread.new do
       begin
         settings.processing_status = "Downloading remote file"
-        
+
         open(@remote_maf){|f|
           File.open('downloaded_temp.maf','w'){|fi| fi.write f.read}
         }
@@ -91,7 +91,7 @@ get '/patient/:id' do
   # generate patient report
   stream do |out|
     content_type :json
-    
+
     patient = params[:id]
     queryer = MafQuery.new
     queryer.patient_info(patient,RDF::FourStore::Repository.new('http://localhost:8080')){|ret|
@@ -138,7 +138,7 @@ SELECT DISTINCT ?patient_id WHERE {
     qb:measure ?patient_id_property.
 
   ?obs a qb:Observation;
-    ?hugo_symbol [ sio:SIO_000300 <http://identifiers.org/hgnc.symbol/SHANK1> ];
+    ?hugo_symbol  <http://identifiers.org/hgnc.symbol/SHANK1> ;
     ?patient_id_property ?patient_id .
 }
 
@@ -206,7 +206,7 @@ get '/wait_for_it' do
       sleep(10)
     end
 
-    
+
     out.puts "All Done!<br><br>"
     out.puts "<a href='patients'>View Patients</a><br>"
     out.puts "<a href='genes'>View Genes</a><br>"
