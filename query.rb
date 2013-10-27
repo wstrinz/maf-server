@@ -1,4 +1,4 @@
-require 'bio-publisci'
+require 'publisci'
 require 'json'
 
 class MafQuery
