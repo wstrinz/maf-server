@@ -10,7 +10,7 @@ Clone the repository
 ```
 bundle install
 
-ruby maf-server.rb
+ruby maf-serve.rb
 ```
 
 Then browse to http://localhost:4567
