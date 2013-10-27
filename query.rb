@@ -2,7 +2,7 @@ require 'publisci'
 require 'json'
 
 class MafQuery
-    QUERIES_DIR = Gem::Specification.find_by_name("bio-publisci").gem_dir + "/resources/queries"
+    QUERIES_DIR = Gem::Specification.find_by_name("publisci").gem_dir + "/resources/queries"
     RESTRICTIONS = {
       patient: '<http://onto.strinz.me/properties/patient_id>',
       sample: '<http://onto.strinz.me/properties/sample_id>',
@@ -11,7 +11,7 @@ class MafQuery
 
     def generate_data
       generator = PubliSci::Readers::MAF.new
-      in_file = Gem::Specification.find_by_name("bio-publisci").gem_dir + '/resources/maf_example.maf'
+      in_file = Gem::Specification.find_by_name("publisci").gem_dir + '/resources/maf_example.maf'
       f = Tempfile.new('graph')
       f.close
       generator.generate_n3(in_file, {output: :file, output_base: f.path})
