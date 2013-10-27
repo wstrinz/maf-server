@@ -13,4 +13,4 @@ bundle install
 ruby maf-server.rb
 ```
 
-Then browse to [http://localhost:4567]
+Then browse to http://localhost:4567
