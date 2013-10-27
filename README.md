@@ -1,7 +1,7 @@
 maf-server
 ==========
 
-A web interface to Bio-PubliSci's maf generator and queries
+A web interface to PubliSci's maf generator and queries
 
 ### Usage
 
