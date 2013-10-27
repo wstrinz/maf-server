@@ -1,7 +1,7 @@
 require 'sinatra'
 require 'sinatra/streaming'
 require 'open-uri'
-require 'bio-publisci'
+require 'publisci'
 require 'cgi'
 require_relative 'query.rb'
 
